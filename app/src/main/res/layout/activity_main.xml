@@ -3,16 +3,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
+    android:padding="12dp"
     android:gravity="center">
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Dual Camera &amp; Audio Recorder"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="12dp"/>
 
     <TextureView
         android:id="@+id/textureView1"
@@ -26,13 +18,14 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginBottom="12dp"/>
 
     <Button
         android:id="@+id/btnRecord"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Начать запись"
+        android:layout_height="60dp"
+        android:text="Начать запись с 2 камер"
+        android:textSize="16sp"
         android:backgroundTint="#E91E63"/>
 
 </LinearLayout>
