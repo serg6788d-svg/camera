@@ -10,10 +10,35 @@
         android:id="@+id/statusTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Приложение готово к работе"
+        android:text="Выберите камеру для записи"
         android:textSize="18sp"
-        android:layout_marginBottom="32dp"
+        android:layout_marginBottom="24dp"
         android:gravity="center"/>
+
+    <RadioGroup
+        android:id="@+id/cameraRadioGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="32dp">
+
+        <RadioButton
+            android:id="@+id/radioBack"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Задняя"
+            android:checked="true"
+            android:textSize="16sp"
+            android:layout_marginEnd="24dp"/>
+
+        <RadioButton
+            android:id="@+id/radioFront"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Передняя"
+            android:textSize="16sp"/>
+    </RadioGroup>
 
     <Button
         android:id="@+id/btnStart"

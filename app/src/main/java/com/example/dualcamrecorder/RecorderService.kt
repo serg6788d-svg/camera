@@ -23,6 +23,7 @@ class RecorderService : LifecycleService() {
 
     private var videoCapture: VideoCapture<Recorder>? = null
     private var recording: Recording? = null
+    private var useFrontCamera: Boolean = false
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
@@ -33,6 +34,7 @@ class RecorderService : LifecycleService() {
                 return START_NOT_STICKY
             }
             else -> {
+                useFrontCamera = intent?.getBooleanExtra("USE_FRONT_CAMERA", false) ?: false
                 startForegroundServiceWithNotification()
                 startCamera()
             }
@@ -51,7 +53,6 @@ class RecorderService : LifecycleService() {
             getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
         }
 
-        // Кнопка «Остановить» прямо в шторке уведомлений
         val stopIntent = Intent(this, RecorderService::class.java).apply {
             action = "ACTION_STOP"
         }
@@ -79,7 +80,6 @@ class RecorderService : LifecycleService() {
     }
 
     private fun startCamera() {
-        if (videoCapture != null) return
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
 
         cameraProviderFuture.addListener({
@@ -93,11 +93,16 @@ class RecorderService : LifecycleService() {
             
             videoCapture = VideoCapture.withOutput(recorder)
 
-            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+            // Выбор камеры на основе параметра из UI
+            val cameraSelector = if (useFrontCamera) {
+                CameraSelector.DEFAULT_FRONT_CAMERA
+            } else {
+                CameraSelector.DEFAULT_BACK_CAMERA
+            }
 
             try {
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(this, cameraSelector, videoCapture)
+                cameraProvider.bindToLifecycle(this, cameraSelector, videoCapture!!)
                 startRecording()
             } catch (exc: Exception) {
                 Log.e("RecorderService", "Camera binding failed", exc)
@@ -123,6 +128,7 @@ class RecorderService : LifecycleService() {
             .setContentValues(contentValues)
             .build()
 
+        // Микрофон включен по умолчанию благодаря .withAudioEnabled()
         recording = videoCapture?.output
             ?.prepareRecording(this, mediaStoreOutputOptions)
             ?.withAudioEnabled()
