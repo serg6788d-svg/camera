@@ -5,19 +5,14 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.widget.Button
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var btnRecord: Button
-    private var isRecording = false
-
-    private val PERMISSIONS_REQUEST_CODE = 100
-    private val REQUIRED_PERMISSIONS = mutableListOf(
+    private val permissions = mutableListOf(
         Manifest.permission.CAMERA,
         Manifest.permission.RECORD_AUDIO
     ).apply {
@@ -26,54 +21,39 @@ class MainActivity : AppCompatActivity() {
         }
     }.toTypedArray()
 
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.entries.all { it.value }
+        if (allGranted) {
+            startCameraService()
+        } else {
+            Toast.makeText(this, "Permissions required!", Toast.LENGTH_LONG).show()
+            finish()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        btnRecord = findViewById(R.id.btnRecord)
-
-        btnRecord.setOnClickListener {
-            if (checkPermissions()) {
-                toggleRecording()
-            } else {
-                requestPermissions()
-            }
-        }
-    }
-
-    private fun checkPermissions(): Boolean {
-        return REQUIRED_PERMISSIONS.all {
-            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
-        }
-    }
-
-    private fun requestPermissions() {
-        ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, PERMISSIONS_REQUEST_CODE)
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSIONS_REQUEST_CODE) {
-            if (checkPermissions()) {
-                toggleRecording()
-            } else {
-                Toast.makeText(this, "Camera and Mic permissions required!", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private fun toggleRecording() {
-        val serviceIntent = Intent(this, RecorderService::class.java)
         
-        isRecording = !isRecording
-        if (isRecording) {
-            btnRecord.text = "Stop Background Recording"
-            ContextCompat.startForegroundService(this, serviceIntent)
-            Toast.makeText(this, "Starting background service...", Toast.LENGTH_SHORT).show()
+        if (allPermissionsGranted()) {
+            startCameraService()
         } else {
-            btnRecord.text = "Start Background Recording"
-            stopService(serviceIntent)
-            Toast.makeText(this, "Service stopped", Toast.LENGTH_SHORT).show()
+            requestPermissionLauncher.launch(permissions)
         }
+    }
+
+    private fun allPermissionsGranted() = permissions.all {
+        ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun startCameraService() {
+        val serviceIntent = Intent(this, RecorderService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
+        finish()
     }
 }

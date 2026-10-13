@@ -1,30 +1,50 @@
 package com.example.dualcamrecorder
 
-import android.app.Notification
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.Service
+import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
-import android.os.IBinder
+import android.provider.MediaStore
+import android.util.Log
+import androidx.camera.core.CameraSelector
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.*
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.LifecycleService
+import java.text.SimpleDateFormat
+import java.util.Locale
 
-class RecorderService : Service() {
+class RecorderService : LifecycleService() {
 
-    private val CHANNEL_ID = "DualCamRecorderChannel"
-
-    override fun onCreate() {
-        super.onCreate()
-        createNotificationChannel()
-    }
+    private var videoCapture: VideoCapture<Recorder>? = null
+    private var recording: Recording? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("DualCamRecorder")
+        super.onStartCommand(intent, flags, startId)
+        startForegroundService()
+        startCamera()
+        return START_STICKY
+    }
+
+    @SuppressLint("ForegroundServiceType")
+    private fun startForegroundService() {
+        val channelId = "RecorderServiceChannel"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId, "Camera Recording Service",
+                NotificationManager.IMPORTANCE_LOW
+            )
+            getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
+        }
+
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setContentTitle("Recording")
             .setContentText("Background recording in progress...")
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setOngoing(true)
+            .setSmallIcon(android.R.drawable.ic_menu_camera)
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -36,27 +56,68 @@ class RecorderService : Service() {
         } else {
             startForeground(1, notification)
         }
+    }
 
-        return START_STICKY
+    private fun startCamera() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+
+        cameraProviderFuture.addListener({
+            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+
+            val qualitySelector = QualitySelector.from(Quality.HD)
+            val recorder = Recorder.Builder()
+                .setExecutor(ContextCompat.getMainExecutor(this))
+                .setQualitySelector(qualitySelector)
+                .build()
+            
+            videoCapture = VideoCapture.withOutput(recorder)
+
+            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+            try {
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(this, cameraSelector, videoCapture)
+                startRecording()
+            } catch (exc: Exception) {
+                Log.e("RecorderService", "Camera binding failed", exc)
+                stopSelf()
+            }
+        }, ContextCompat.getMainExecutor(this))
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startRecording() {
+        val name = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US).format(System.currentTimeMillis())
+        val contentValues = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+            put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
+            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+                put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/HiddenRecordings")
+            }
+        }
+
+        val mediaStoreOutputOptions = MediaStoreOutputOptions
+            .Builder(contentResolver, MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
+            .setContentValues(contentValues)
+            .build()
+
+        recording = videoCapture?.output
+            ?.prepareRecording(this, mediaStoreOutputOptions)
+            ?.withAudioEnabled()
+            ?.start(ContextCompat.getMainExecutor(this)) { recordEvent ->
+                if (recordEvent is VideoRecordEvent.Finalize) {
+                    if (!recordEvent.hasError()) {
+                        Log.d("RecorderService", "Video saved successfully")
+                    } else {
+                        Log.e("RecorderService", "Video recording error: ${recordEvent.error}")
+                    }
+                    stopSelf()
+                }
+            }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-    }
-
-    override fun onBind(intent: Intent?): IBinder? {
-        return null
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val serviceChannel = NotificationChannel(
-                CHANNEL_ID,
-                "Background Recording",
-                NotificationManager.IMPORTANCE_LOW
-            )
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(serviceChannel)
-        }
+        recording?.stop()
     }
 }
