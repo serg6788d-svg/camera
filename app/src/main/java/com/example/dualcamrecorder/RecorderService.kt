@@ -3,6 +3,7 @@ package com.example.dualcamrecorder
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -25,13 +26,22 @@ class RecorderService : LifecycleService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        startForegroundService()
-        startCamera()
+        
+        when (intent?.action) {
+            "ACTION_STOP" -> {
+                stopRecordingAndService()
+                return START_NOT_STICKY
+            }
+            else -> {
+                startForegroundServiceWithNotification()
+                startCamera()
+            }
+        }
         return START_STICKY
     }
 
     @SuppressLint("ForegroundServiceType")
-    private fun startForegroundService() {
+    private fun startForegroundServiceWithNotification() {
         val channelId = "RecorderServiceChannel"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -41,10 +51,20 @@ class RecorderService : LifecycleService() {
             getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
         }
 
+        // Кнопка «Остановить» прямо в шторке уведомлений
+        val stopIntent = Intent(this, RecorderService::class.java).apply {
+            action = "ACTION_STOP"
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this, 0, stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Recording")
-            .setContentText("Background recording in progress...")
+            .setContentTitle("Скрытая запись")
+            .setContentText("Идет запись видео и звука...")
             .setSmallIcon(android.R.drawable.ic_menu_camera)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Остановить", stopPendingIntent)
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -59,6 +79,7 @@ class RecorderService : LifecycleService() {
     }
 
     private fun startCamera() {
+        if (videoCapture != null) return
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
 
         cameraProviderFuture.addListener({
@@ -87,6 +108,7 @@ class RecorderService : LifecycleService() {
 
     @SuppressLint("MissingPermission")
     private fun startRecording() {
+        if (recording != null) return
         val name = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US).format(System.currentTimeMillis())
         val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, name)
@@ -111,9 +133,15 @@ class RecorderService : LifecycleService() {
                     } else {
                         Log.e("RecorderService", "Video recording error: ${recordEvent.error}")
                     }
-                    stopSelf()
                 }
             }
+    }
+
+    private fun stopRecordingAndService() {
+        recording?.stop()
+        recording = null
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
     }
 
     override fun onDestroy() {
