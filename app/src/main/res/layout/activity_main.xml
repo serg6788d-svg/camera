@@ -3,29 +3,36 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="12dp"
+    android:padding="16dp"
     android:gravity="center">
 
-    <TextureView
-        android:id="@+id/textureView1"
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Dual Camera &amp; Audio Recorder"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="12dp"/>
+
+    <androidx.camera.view.PreviewView
+        android:id="@+id/previewView1"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:layout_marginBottom="8dp"/>
 
-    <TextureView
-        android:id="@+id/textureView2"
+    <androidx.camera.view.PreviewView
+        android:id="@+id/previewView2"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginBottom="12dp"/>
+        android:layout_marginBottom="16dp"/>
 
     <Button
         android:id="@+id/btnRecord"
         android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:text="Начать запись с 2 камер"
-        android:textSize="16sp"
+        android:layout_height="wrap_content"
+        android:text="Start Background Recording"
         android:backgroundTint="#E91E63"/>
 
 </LinearLayout>
