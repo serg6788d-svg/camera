@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var textureView2: TextureView
     private lateinit var btnRecord: Button
     private lateinit var spinnerMode: Spinner
+    private lateinit var spinnerQuality: Spinner
 
     private lateinit var cameraManager: CameraManager
     private var cameraDevice1: CameraDevice? = null
@@ -53,10 +54,15 @@ class MainActivity : AppCompatActivity() {
         textureView2 = findViewById(R.id.textureView2)
         btnRecord = findViewById(R.id.btnRecord)
         spinnerMode = findViewById(R.id.spinnerMode)
+        spinnerQuality = findViewById(R.id.spinnerQuality)
 
         val modes = arrayOf("Только задняя камера", "Только передняя камера", "Обе камеры (Одновременно)")
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, modes)
-        spinnerMode.adapter = adapter
+        val modeAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, modes)
+        spinnerMode.adapter = modeAdapter
+
+        val qualities = arrayOf("HD (720p - Оптимально)", "Full HD (1080p - Высокое)")
+        val qualityAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, qualities)
+        spinnerQuality.adapter = qualityAdapter
 
         cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
         detectCameras()
@@ -110,7 +116,6 @@ class MainActivity : AppCompatActivity() {
                     frontCameraId = id
                 }
             }
-            // Запасные варианты, если устройство не вернуло ориентацию явно
             val list = cameraManager.cameraIdList
             if (backCameraId == null && list.isNotEmpty()) backCameraId = list[0]
             if (frontCameraId == null && list.size > 1) frontCameraId = list[1] else frontCameraId = backCameraId
@@ -163,7 +168,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (selectedMode == 1 || selectedMode == 2) {
-                val targetId = if (selectedMode == 1) backCameraId ?: frontCameraId else frontCameraId
+                val targetId = if (selectedMode == 1) frontCameraId ?: backCameraId else frontCameraId
                 targetId?.let { id ->
                     cameraManager.openCamera(id, object : CameraDevice.StateCallback() {
                         override fun onOpened(camera: CameraDevice) {
@@ -213,6 +218,11 @@ class MainActivity : AppCompatActivity() {
     private fun startRecording() {
         try {
             val selectedMode = spinnerMode.selectedItemPosition
+            val isFullHD = spinnerQuality.selectedItemPosition == 1
+            val width = if (isFullHD) 1920 else 1280
+            val height = if (isFullHD) 1080 else 720
+            val bitrate = if (isFullHD) 15000000 else 8000000
+
             val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
             if (!dir.exists()) dir.mkdirs()
@@ -220,7 +230,6 @@ class MainActivity : AppCompatActivity() {
             val file1 = File(dir, "Cam1_${timeStamp}.mp4")
 
             if (selectedMode == 2) {
-                // Две камеры одновременно
                 val file2 = File(dir, "Cam2_${timeStamp}.mp4")
 
                 mediaRecorder1 = MediaRecorder().apply {
@@ -228,9 +237,9 @@ class MainActivity : AppCompatActivity() {
                     setVideoSource(MediaRecorder.VideoSource.SURFACE)
                     setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                     setOutputFile(file1.absolutePath)
-                    setVideoEncodingBitRate(8000000)
+                    setVideoEncodingBitRate(bitrate)
                     setVideoFrameRate(30)
-                    setVideoSize(1280, 720)
+                    setVideoSize(width, height)
                     setVideoEncoder(MediaRecorder.VideoEncoder.H264)
                     setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                     prepare()
@@ -240,9 +249,9 @@ class MainActivity : AppCompatActivity() {
                     setVideoSource(MediaRecorder.VideoSource.SURFACE)
                     setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                     setOutputFile(file2.absolutePath)
-                    setVideoEncodingBitRate(8000000)
+                    setVideoEncodingBitRate(bitrate)
                     setVideoFrameRate(30)
-                    setVideoSize(1280, 720)
+                    setVideoSize(width, height)
                     setVideoEncoder(MediaRecorder.VideoEncoder.H264)
                     prepare()
                 }
@@ -250,48 +259,48 @@ class MainActivity : AppCompatActivity() {
                 mediaRecorder1?.start()
                 mediaRecorder2?.start()
 
-                startRecordingSession(cameraDevice1, captureSession1, textureView1, mediaRecorder1?.surface, 1)
-                startRecordingSession(cameraDevice2, captureSession2, textureView2, mediaRecorder2?.surface, 2)
+                startRecordingSession(cameraDevice1, captureSession1, textureView1, mediaRecorder1?.surface, width, height, 1)
+                startRecordingSession(cameraDevice2, captureSession2, textureView2, mediaRecorder2?.surface, width, height, 2)
 
             } else {
-                // Одна камера (задняя или передняя) со звуком
                 mediaRecorder1 = MediaRecorder().apply {
                     setAudioSource(MediaRecorder.AudioSource.MIC)
                     setVideoSource(MediaRecorder.VideoSource.SURFACE)
                     setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                     setOutputFile(file1.absolutePath)
-                    setVideoEncodingBitRate(8000000)
+                    setVideoEncodingBitRate(bitrate)
                     setVideoFrameRate(30)
-                    setVideoSize(1280, 720)
+                    setVideoSize(width, height)
                     setVideoEncoder(MediaRecorder.VideoEncoder.H264)
                     setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                     prepare()
                 }
 
                 mediaRecorder1?.start()
-                startRecordingSession(cameraDevice1, captureSession1, textureView1, mediaRecorder1?.surface, 1)
+                startRecordingSession(cameraDevice1, captureSession1, textureView1, mediaRecorder1?.surface, width, height, 1)
             }
 
             isRecording = true
             spinnerMode.isEnabled = false
+            spinnerQuality.isEnabled = false
             btnRecord.text = "Остановить запись"
             Toast.makeText(this, "Запись началась! Файлы в Movies", Toast.LENGTH_LONG).show()
 
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Ошибка записи: ${e.message}", Toast.LENGTH_LONG).show()
-            stopRecording() // Сброс состояния при ошибке
+            stopRecording()
         }
     }
 
-    private fun startRecordingSession(cameraDevice: CameraDevice?, session: CameraCaptureSession?, textureView: TextureView, recorderSurface: Surface?, id: Int) {
+    private fun startRecordingSession(cameraDevice: CameraDevice?, session: CameraCaptureSession?, textureView: TextureView, recorderSurface: Surface?, width: Int, height: Int, id: Int) {
         if (cameraDevice == null || recorderSurface == null) return
         try {
             session?.stopRepeating()
             session?.close()
 
             val texture = textureView.surfaceTexture ?: return
-            texture.setDefaultBufferSize(1280, 720)
+            texture.setDefaultBufferSize(width, height)
             val previewSurface = Surface(texture)
 
             val builder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
@@ -315,32 +324,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun stopRecording() {
         try {
-            try {
-                mediaRecorder1?.stop()
-            } catch (e: Exception) { e.printStackTrace() }
-            try {
-                mediaRecorder1?.reset()
-            } catch (e: Exception) { e.printStackTrace() }
-            try {
-                mediaRecorder1?.release()
-            } catch (e: Exception) { e.printStackTrace() }
+            try { mediaRecorder1?.stop() } catch (e: Exception) { e.printStackTrace() }
+            try { mediaRecorder1?.reset() } catch (e: Exception) { e.printStackTrace() }
+            try { mediaRecorder1?.release() } catch (e: Exception) { e.printStackTrace() }
             mediaRecorder1 = null
 
-            try {
-                mediaRecorder2?.stop()
-            } catch (e: Exception) { e.printStackTrace() }
-            try {
-                mediaRecorder2?.reset()
-            } catch (e: Exception) { e.printStackTrace() }
-            try {
-                mediaRecorder2?.release()
-            } catch (e: Exception) { e.printStackTrace() }
+            try { mediaRecorder2?.stop() } catch (e: Exception) { e.printStackTrace() }
+            try { mediaRecorder2?.reset() } catch (e: Exception) { e.printStackTrace() }
+            try { mediaRecorder2?.release() } catch (e: Exception) { e.printStackTrace() }
             mediaRecorder2 = null
 
         } finally {
-            // Гарантированный сброс состояния интерфейса
             isRecording = false
             spinnerMode.isEnabled = true
+            spinnerQuality.isEnabled = true
             btnRecord.text = "Начать запись"
             Toast.makeText(this, "Запись сохранена в папку Movies", Toast.LENGTH_LONG).show()
 
