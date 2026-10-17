@@ -44,10 +44,10 @@ class RecorderService : LifecycleService() {
 
     @SuppressLint("ForegroundServiceType")
     private fun startForegroundServiceWithNotification() {
-        val channelId = "CalendarServiceChannel"
+        val channelId = "PlannerServiceChannel"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                channelId, "Calendar Notifications",
+                channelId, "Оповещение ежедневника",
                 NotificationManager.IMPORTANCE_LOW
             )
             getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
@@ -61,10 +61,9 @@ class RecorderService : LifecycleService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Маскировка под уведомление календаря / напоминание
         val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Событие в календаре")
-            .setContentText("Рабочая встреча")
+            .setContentTitle("Оповещение ежедневника")
+            .setContentText("Напоминание о встрече")
             .setSmallIcon(android.R.drawable.ic_menu_agenda)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "ОК", stopPendingIntent)
             .build()
