@@ -3,42 +3,28 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="24dp"
+    android:padding="12dp"
     android:gravity="center">
 
-    <TextView
+    <TextureView
+        android:id="@+id/textureView1"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Выбор камеры:"
-        android:textSize="14sp"
-        android:textColor="#666666"
-        android:layout_marginBottom="4dp"/>
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginBottom="8dp"/>
 
-    <Spinner
-        android:id="@+id/spinnerCamera"
+    <TextureView
+        android:id="@+id/textureView2"
         android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:layout_marginBottom="16dp"/>
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Качество записи:"
-        android:textSize="14sp"
-        android:textColor="#666666"
-        android:layout_marginBottom="4dp"/>
-
-    <Spinner
-        android:id="@+id/spinnerQuality"
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:layout_marginBottom="32dp"/>
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginBottom="12dp"/>
 
     <Button
         android:id="@+id/btnRecord"
         android:layout_width="match_parent"
         android:layout_height="60dp"
-        android:text="Начать запись"
+        android:text="Начать запись с 2 камер"
         android:textSize="16sp"
         android:backgroundTint="#E91E63"/>
 
