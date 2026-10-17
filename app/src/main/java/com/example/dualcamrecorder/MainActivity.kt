@@ -133,7 +133,7 @@ class MainActivity : AppCompatActivity() {
             builder.addTarget(surface)
 
             cameraDevice.createCaptureSession(listOf(surface), object : CameraCaptureSession.StateCallback() {
-                override fun configureFailed(session: CameraCaptureSession) {}
+                override fun onConfigureFailed(session: CameraCaptureSession) {}
                 override fun onConfigured(session: CameraCaptureSession) {
                     if (id == 1) captureSession1 = session else captureSession2 = session
                     try {
@@ -174,6 +174,7 @@ class MainActivity : AppCompatActivity() {
                 setOutputFile(file2.absolutePath)
                 setVideoEncodingBitRate(10000000)
                 setVideoFrameRate(30)
+                setVideoSize(1280, 720)
                 setVideoEncoder(MediaRecorder.VideoEncoder.H264)
                 prepare()
             }
@@ -215,7 +216,7 @@ class MainActivity : AppCompatActivity() {
                         camSession.setRepeatingRequest(builder.build(), null, null)
                     } catch (e: Exception) { e.printStackTrace() }
                 }
-                override fun configureFailed(camSession: CameraCaptureSession) {}
+                override fun onConfigureFailed(camSession: CameraCaptureSession) {}
             }, null)
         } catch (e: Exception) {
             e.printStackTrace()

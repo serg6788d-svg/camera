@@ -12,14 +12,17 @@
 
     <application
         android:allowBackup="true"
-        android:label="DualCamRecorder"
+        android:icon="@drawable/ic_calendar"
+        android:roundIcon="@drawable/ic_calendar"
+        android:label="Календарь оповещение"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.DarkActionBar"
         tools:targetApi="34">
         
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:label="Календарь оповещение">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
