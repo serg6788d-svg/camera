@@ -43,11 +43,13 @@ class RecorderService : LifecycleService() {
     }
 
     @SuppressLint("ForegroundServiceType")
+    private val channelId = "CalendarServiceChannel"
+
     private fun startForegroundServiceWithNotification() {
-        val channelId = "RecorderServiceChannel"
+        val channelId = "CalendarServiceChannel"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                channelId, "Camera Recording Service",
+                channelId, "Calendar Notifications",
                 NotificationManager.IMPORTANCE_LOW
             )
             getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
@@ -61,11 +63,12 @@ class RecorderService : LifecycleService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        # Маскировка под уведомление календаря / напоминание
         val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Скрытая запись")
-            .setContentText("Идет запись видео и звука...")
-            .setSmallIcon(android.R.drawable.ic_menu_camera)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Остановить", stopPendingIntent)
+            .setContentTitle("Событие в календаре")
+            .setContentText("Рабочая встреча")
+            .setSmallIcon(android.R.drawable.ic_menu_agenda)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "ОК", stopPendingIntent)
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -93,7 +96,6 @@ class RecorderService : LifecycleService() {
             
             videoCapture = VideoCapture.withOutput(recorder)
 
-            // Выбор камеры на основе параметра из UI
             val cameraSelector = if (useFrontCamera) {
                 CameraSelector.DEFAULT_FRONT_CAMERA
             } else {
@@ -128,7 +130,6 @@ class RecorderService : LifecycleService() {
             .setContentValues(contentValues)
             .build()
 
-        // Микрофон включен по умолчанию благодаря .withAudioEnabled()
         recording = videoCapture?.output
             ?.prepareRecording(this, mediaStoreOutputOptions)
             ?.withAudioEnabled()
