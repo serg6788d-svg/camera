@@ -2,58 +2,36 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:padding="12dp"
+    android:gravity="center">
 
-    <TextView
-        android:id="@+id/statusTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Выберите камеру для записи"
-        android:textSize="18sp"
-        android:layout_marginBottom="24dp"
-        android:gravity="center"/>
-
-    <RadioGroup
-        android:id="@+id/cameraRadioGroup"
+    <Spinner
+        android:id="@+id/spinnerQuality"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:layout_marginBottom="32dp">
+        android:layout_height="48dp"
+        android:layout_marginBottom="8dp"/>
 
-        <RadioButton
-            android:id="@+id/radioBack"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Задняя"
-            android:checked="true"
-            android:textSize="16sp"
-            android:layout_marginEnd="24dp"/>
+    <TextureView
+        android:id="@+id/textureView1"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginBottom="8dp"/>
 
-        <RadioButton
-            android:id="@+id/radioFront"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Передняя"
-            android:textSize="16sp"/>
-    </RadioGroup>
+    <TextureView
+        android:id="@+id/textureView2"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginBottom="12dp"/>
 
     <Button
-        android:id="@+id/btnStart"
+        android:id="@+id/btnRecord"
         android:layout_width="match_parent"
         android:layout_height="60dp"
-        android:text="Начать запись"
+        android:text="Начать запись с 2 камер"
         android:textSize="16sp"
-        android:layout_marginBottom="16dp"/>
-
-    <Button
-        android:id="@+id/btnStop"
-        android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:text="Остановить запись"
-        android:textSize="16sp"
-        android:backgroundTint="#D32F2F"/>
+        android:backgroundTint="#E91E63"/>
 
 </LinearLayout>
