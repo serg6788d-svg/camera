@@ -9,6 +9,8 @@ import android.os.Bundle
 import android.os.Environment
 import android.view.Surface
 import android.view.TextureView
+import android.view.View
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.Spinner
@@ -25,7 +27,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var textureView1: TextureView
     private lateinit var textureView2: TextureView
     private lateinit var btnRecord: Button
-    private lateinit var spinnerQuality: Spinner
+    private lateinit var spinnerMode: Spinner
 
     private lateinit var cameraManager: CameraManager
     private var cameraDevice1: CameraDevice? = null
@@ -38,8 +40,8 @@ class MainActivity : AppCompatActivity() {
     private var mediaRecorder2: MediaRecorder? = null
 
     private var isRecording = false
-    private var cameraId1: String = "0"
-    private var cameraId2: String = "1"
+    private var backCameraId: String? = null
+    private var frontCameraId: String? = null
 
     private val REQUEST_CODE = 200
 
@@ -50,13 +52,24 @@ class MainActivity : AppCompatActivity() {
         textureView1 = findViewById(R.id.textureView1)
         textureView2 = findViewById(R.id.textureView2)
         btnRecord = findViewById(R.id.btnRecord)
-        spinnerQuality = findViewById(R.id.spinnerQuality)
+        spinnerMode = findViewById(R.id.spinnerMode)
 
-        val qualities = arrayOf("HD (720p - Оптимально)", "Full HD (1080p - Высокое)")
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, qualities)
-        spinnerQuality.adapter = adapter
+        val modes = arrayOf("Только задняя камера", "Только передняя камера", "Обе камеры (Одновременно)")
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, modes)
+        spinnerMode.adapter = adapter
 
         cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        detectCameras()
+
+        spinnerMode.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
+                if (!isRecording) {
+                    updatePreviewLayout()
+                    openCameras()
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>) {}
+        }
 
         btnRecord.setOnClickListener {
             if (checkPermissions()) {
@@ -74,6 +87,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (checkPermissions()) {
+            updatePreviewLayout()
             openCameras()
         } else {
             requestPermissions()
@@ -83,6 +97,37 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         closeCameras()
+    }
+
+    private fun detectCameras() {
+        try {
+            for (id in cameraManager.cameraIdList) {
+                val characteristics = cameraManager.getCameraCharacteristics(id)
+                val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
+                if (facing == CameraCharacteristics.LENS_FACING_BACK) {
+                    backCameraId = id
+                } else if (facing == CameraCharacteristics.LENS_FACING_FRONT) {
+                    frontCameraId = id
+                }
+            }
+            // Запасные варианты, если устройство не вернуло ориентацию явно
+            val list = cameraManager.cameraIdList
+            if (backCameraId == null && list.isNotEmpty()) backCameraId = list[0]
+            if (frontCameraId == null && list.size > 1) frontCameraId = list[1] else frontCameraId = backCameraId
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun updatePreviewLayout() {
+        val selectedMode = spinnerMode.selectedItemPosition
+        if (selectedMode == 2) {
+            textureView1.visibility = View.VISIBLE
+            textureView2.visibility = View.VISIBLE
+        } else {
+            textureView1.visibility = View.VISIBLE
+            textureView2.visibility = View.GONE
+        }
     }
 
     private fun checkPermissions(): Boolean {
@@ -96,34 +141,45 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openCameras() {
+        closeCameras()
         try {
-            val cameraIds = cameraManager.cameraIdList
-            if (cameraIds.size >= 2) {
-                cameraId1 = cameraIds[0]
-                cameraId2 = cameraIds[1]
-            }
-
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                 return
             }
 
-            cameraManager.openCamera(cameraId1, object : CameraDevice.StateCallback() {
-                override fun onOpened(camera: CameraDevice) {
-                    cameraDevice1 = camera
-                    startPreview(cameraDevice1, textureView1, 1)
-                }
-                override fun onDisconnected(camera: CameraDevice) { camera.close() }
-                override fun onError(camera: CameraDevice, error: Int) { camera.close() }
-            }, null)
+            val selectedMode = spinnerMode.selectedItemPosition
 
-            cameraManager.openCamera(cameraId2, object : CameraDevice.StateCallback() {
-                override fun onOpened(camera: CameraDevice) {
-                    cameraDevice2 = camera
-                    startPreview(cameraDevice2, textureView2, 2)
+            if (selectedMode == 0 || selectedMode == 2) {
+                backCameraId?.let { id ->
+                    cameraManager.openCamera(id, object : CameraDevice.StateCallback() {
+                        override fun onOpened(camera: CameraDevice) {
+                            cameraDevice1 = camera
+                            startPreview(cameraDevice1, textureView1, 1)
+                        }
+                        override fun onDisconnected(camera: CameraDevice) { camera.close() }
+                        override fun onError(camera: CameraDevice, error: Int) { camera.close() }
+                    }, null)
                 }
-                override fun onDisconnected(camera: CameraDevice) { camera.close() }
-                override fun onError(camera: CameraDevice, error: Int) { camera.close() }
-            }, null)
+            }
+
+            if (selectedMode == 1 || selectedMode == 2) {
+                val targetId = if (selectedMode == 1) backCameraId ?: frontCameraId else frontCameraId
+                targetId?.let { id ->
+                    cameraManager.openCamera(id, object : CameraDevice.StateCallback() {
+                        override fun onOpened(camera: CameraDevice) {
+                            if (selectedMode == 1) {
+                                cameraDevice1 = camera
+                                startPreview(cameraDevice1, textureView1, 1)
+                            } else {
+                                cameraDevice2 = camera
+                                startPreview(cameraDevice2, textureView2, 2)
+                            }
+                        }
+                        override fun onDisconnected(camera: CameraDevice) { camera.close() }
+                        override fun onError(camera: CameraDevice, error: Int) { camera.close() }
+                    }, null)
+                }
+            }
 
         } catch (e: Exception) {
             e.printStackTrace()
@@ -156,67 +212,86 @@ class MainActivity : AppCompatActivity() {
 
     private fun startRecording() {
         try {
-            val isFullHD = spinnerQuality.selectedItemPosition == 1
-            val width = if (isFullHD) 1920 else 1280
-            val height = if (isFullHD) 1080 else 720
-            val bitrate = if (isFullHD) 15000000 else 8000000
-
+            val selectedMode = spinnerMode.selectedItemPosition
             val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
             if (!dir.exists()) dir.mkdirs()
 
             val file1 = File(dir, "Cam1_${timeStamp}.mp4")
-            val file2 = File(dir, "Cam2_${timeStamp}.mp4")
 
-            mediaRecorder1 = MediaRecorder().apply {
-                setAudioSource(MediaRecorder.AudioSource.MIC)
-                setVideoSource(MediaRecorder.VideoSource.SURFACE)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setOutputFile(file1.absolutePath)
-                setVideoEncodingBitRate(bitrate)
-                setVideoFrameRate(30)
-                setVideoSize(width, height)
-                setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                prepare()
+            if (selectedMode == 2) {
+                // Две камеры одновременно
+                val file2 = File(dir, "Cam2_${timeStamp}.mp4")
+
+                mediaRecorder1 = MediaRecorder().apply {
+                    setAudioSource(MediaRecorder.AudioSource.MIC)
+                    setVideoSource(MediaRecorder.VideoSource.SURFACE)
+                    setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                    setOutputFile(file1.absolutePath)
+                    setVideoEncodingBitRate(8000000)
+                    setVideoFrameRate(30)
+                    setVideoSize(1280, 720)
+                    setVideoEncoder(MediaRecorder.VideoEncoder.H264)
+                    setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                    prepare()
+                }
+
+                mediaRecorder2 = MediaRecorder().apply {
+                    setVideoSource(MediaRecorder.VideoSource.SURFACE)
+                    setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                    setOutputFile(file2.absolutePath)
+                    setVideoEncodingBitRate(8000000)
+                    setVideoFrameRate(30)
+                    setVideoSize(1280, 720)
+                    setVideoEncoder(MediaRecorder.VideoEncoder.H264)
+                    prepare()
+                }
+
+                mediaRecorder1?.start()
+                mediaRecorder2?.start()
+
+                startRecordingSession(cameraDevice1, captureSession1, textureView1, mediaRecorder1?.surface, 1)
+                startRecordingSession(cameraDevice2, captureSession2, textureView2, mediaRecorder2?.surface, 2)
+
+            } else {
+                // Одна камера (задняя или передняя) со звуком
+                mediaRecorder1 = MediaRecorder().apply {
+                    setAudioSource(MediaRecorder.AudioSource.MIC)
+                    setVideoSource(MediaRecorder.VideoSource.SURFACE)
+                    setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                    setOutputFile(file1.absolutePath)
+                    setVideoEncodingBitRate(8000000)
+                    setVideoFrameRate(30)
+                    setVideoSize(1280, 720)
+                    setVideoEncoder(MediaRecorder.VideoEncoder.H264)
+                    setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                    prepare()
+                }
+
+                mediaRecorder1?.start()
+                startRecordingSession(cameraDevice1, captureSession1, textureView1, mediaRecorder1?.surface, 1)
             }
-
-            mediaRecorder2 = MediaRecorder().apply {
-                setVideoSource(MediaRecorder.VideoSource.SURFACE)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setOutputFile(file2.absolutePath)
-                setVideoEncodingBitRate(bitrate)
-                setVideoFrameRate(30)
-                setVideoSize(width, height)
-                setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-                prepare()
-            }
-
-            mediaRecorder1?.start()
-            mediaRecorder2?.start()
-
-            startRecordingSession(cameraDevice1, captureSession1, textureView1, mediaRecorder1?.surface, width, height, 1)
-            startRecordingSession(cameraDevice2, captureSession2, textureView2, mediaRecorder2?.surface, width, height, 2)
 
             isRecording = true
-            spinnerQuality.isEnabled = false
+            spinnerMode.isEnabled = false
             btnRecord.text = "Остановить запись"
-            Toast.makeText(this, "Запись началась! Файлы в папке Movies", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Запись началась! Файлы в Movies", Toast.LENGTH_LONG).show()
 
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Ошибка записи: ${e.message}", Toast.LENGTH_LONG).show()
+            stopRecording() // Сброс состояния при ошибке
         }
     }
 
-    private fun startRecordingSession(cameraDevice: CameraDevice?, session: CameraCaptureSession?, textureView: TextureView, recorderSurface: Surface?, width: Int, height: Int, id: Int) {
+    private fun startRecordingSession(cameraDevice: CameraDevice?, session: CameraCaptureSession?, textureView: TextureView, recorderSurface: Surface?, id: Int) {
         if (cameraDevice == null || recorderSurface == null) return
         try {
             session?.stopRepeating()
             session?.close()
 
             val texture = textureView.surfaceTexture ?: return
-            texture.setDefaultBufferSize(width, height)
+            texture.setDefaultBufferSize(1280, 720)
             val previewSurface = Surface(texture)
 
             val builder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
@@ -240,33 +315,50 @@ class MainActivity : AppCompatActivity() {
 
     private fun stopRecording() {
         try {
-            mediaRecorder1?.stop()
-            mediaRecorder1?.reset()
-            mediaRecorder1?.release()
+            try {
+                mediaRecorder1?.stop()
+            } catch (e: Exception) { e.printStackTrace() }
+            try {
+                mediaRecorder1?.reset()
+            } catch (e: Exception) { e.printStackTrace() }
+            try {
+                mediaRecorder1?.release()
+            } catch (e: Exception) { e.printStackTrace() }
             mediaRecorder1 = null
 
-            mediaRecorder2?.stop()
-            mediaRecorder2?.reset()
-            mediaRecorder2?.release()
+            try {
+                mediaRecorder2?.stop()
+            } catch (e: Exception) { e.printStackTrace() }
+            try {
+                mediaRecorder2?.reset()
+            } catch (e: Exception) { e.printStackTrace() }
+            try {
+                mediaRecorder2?.release()
+            } catch (e: Exception) { e.printStackTrace() }
             mediaRecorder2 = null
 
+        } finally {
+            // Гарантированный сброс состояния интерфейса
             isRecording = false
-            spinnerQuality.isEnabled = true
-            btnRecord.text = "Начать запись с 2 камер"
-            Toast.makeText(this, "Запись сохранена в память телефона!", Toast.LENGTH_LONG).show()
+            spinnerMode.isEnabled = true
+            btnRecord.text = "Начать запись"
+            Toast.makeText(this, "Запись сохранена в папку Movies", Toast.LENGTH_LONG).show()
 
             openCameras()
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 
     private fun closeCameras() {
         try {
             captureSession1?.close()
+            captureSession1 = null
             cameraDevice1?.close()
+            cameraDevice1 = null
+
             captureSession2?.close()
+            captureSession2 = null
             cameraDevice2?.close()
+            cameraDevice2 = null
         } catch (e: Exception) {
             e.printStackTrace()
         }
